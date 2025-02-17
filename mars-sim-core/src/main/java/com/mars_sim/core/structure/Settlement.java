@@ -417,6 +417,9 @@ public class Settlement extends Unit implements Temporal,
 		weather.addLocation(location);
 
 		explorations = new ExplorationManager(this);
+			
+		// Initialize schedule event manager
+		futureEvents = new ScheduledEventManager(masterClock);
 	}
 
 
@@ -488,9 +491,7 @@ public class Settlement extends Unit implements Temporal,
 
 		// Create adjacent building map
 		buildingManager.createAdjacentBuildingMap();
-		
-		// Initialize schedule event manager
-		futureEvents = new ScheduledEventManager(masterClock);
+	
 
 		shiftManager = new ShiftManager(this, sTemplate.getShiftDefinition(),
 										 masterClock.getMarsTime().getMillisolInt());

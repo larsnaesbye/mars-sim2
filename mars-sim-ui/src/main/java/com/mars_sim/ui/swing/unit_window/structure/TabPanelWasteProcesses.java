@@ -17,12 +17,12 @@ import javax.swing.JCheckBox;
 import javax.swing.JPanel;
 
 import com.mars_sim.core.Unit;
+import com.mars_sim.core.resourceprocess.ResourceProcess;
 import com.mars_sim.core.structure.OverrideType;
 import com.mars_sim.core.structure.Settlement;
 import com.mars_sim.core.structure.building.Building;
 import com.mars_sim.core.structure.building.BuildingManager;
 import com.mars_sim.core.structure.building.function.FunctionType;
-import com.mars_sim.core.structure.building.function.ResourceProcess;
 import com.mars_sim.core.structure.building.function.WasteProcessing;
 import com.mars_sim.core.tool.Msg;
 import com.mars_sim.ui.swing.ImageLoader;

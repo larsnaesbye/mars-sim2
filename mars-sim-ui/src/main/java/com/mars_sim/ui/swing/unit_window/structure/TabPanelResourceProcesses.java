@@ -23,12 +23,12 @@ import javax.swing.JPanel;
 
 import com.mars_sim.core.Unit;
 import com.mars_sim.core.logging.SimLogger;
+import com.mars_sim.core.resourceprocess.ResourceProcess;
 import com.mars_sim.core.structure.OverrideType;
 import com.mars_sim.core.structure.Settlement;
 import com.mars_sim.core.structure.building.Building;
 import com.mars_sim.core.structure.building.BuildingManager;
 import com.mars_sim.core.structure.building.function.FunctionType;
-import com.mars_sim.core.structure.building.function.ResourceProcess;
 import com.mars_sim.core.structure.building.function.ResourceProcessing;
 import com.mars_sim.core.tool.Msg;
 import com.mars_sim.ui.swing.ImageLoader;
@@ -46,6 +46,7 @@ public class TabPanelResourceProcesses extends TabPanel implements ActionListene
 	private static final SimLogger logger = SimLogger.getLogger(TabPanelResourceProcesses.class.getName());
 
 	private static final String ICON = "resource";
+	private static final String[] LEVEL_NAMES = {"1", "2", "3", "4", "5"}; 
 	
 	/** The Settlement instance. */
 	private Settlement settlement;
@@ -117,8 +118,7 @@ public class TabPanelResourceProcesses extends TabPanel implements ActionListene
 		levelPanel.add(levelLabel);
 			
 		// Prepare level combo box
-		String[] level = {"1", "2", "3", "4", "5"}; 
-		levelComboBox = new JComboBox<>(level);
+		levelComboBox = new JComboBox<>(LEVEL_NAMES);
 		levelComboBox.setPrototypeDisplayValue("2");
 		levelComboBox.setSelectedItem("2");
 		levelComboBox.addActionListener(this);

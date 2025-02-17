@@ -18,11 +18,11 @@ import com.mars_sim.console.chat.simcommand.CommandHelper;
 import com.mars_sim.console.chat.simcommand.StructuredResponse;
 import com.mars_sim.core.person.Person;
 import com.mars_sim.core.resource.ResourceUtil;
+import com.mars_sim.core.resourceprocess.ResourceProcess;
 import com.mars_sim.core.structure.Settlement;
 import com.mars_sim.core.structure.WaterUseType;
 import com.mars_sim.core.structure.building.Building;
 import com.mars_sim.core.structure.building.function.FunctionType;
-import com.mars_sim.core.structure.building.function.ResourceProcess;
 import com.mars_sim.core.structure.building.function.ResourceProcessing;
 import com.mars_sim.core.structure.building.function.farming.Farming;
 

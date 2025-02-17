@@ -1,10 +1,10 @@
 /*
  * Mars Simulation Project
- * ProcessSpec.java
- * @date 2022-10-23
+ * ResourceProcessSpec.java
+ * @date 2021-08-20
  * @author Barry Evans
  */
-package com.mars_sim.core.process;
+package com.mars_sim.core.resourceprocess;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -13,18 +13,22 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * This class represents the key attributes to a process that converts a set of input Resources
- * into a set of output Resources.
+ * The ResourceProcessSpec class represents the specification of a process of converting one set of
+ * resources to another. This object is shared amongst ResourceProcess of the same type.
  */
-public abstract class ProcessSpec implements Serializable {
+public class ResourceProcessSpec implements Serializable{
 
 	private static final long serialVersionUID = 1L;
 
+	private static final double MIN_PERC = 0.25;
+
+	private boolean defaultOn;
 	private String name;
 	private double powerRequired;
 
 	private Map<Integer, Double> baseInputRates;
 	private Map<Integer, Double> baseOutputRates;
+	private Map<Integer, Double> minimumInputs;
 
 	// Cache some aggregate values
 	private Set<Integer> ambientResources;
@@ -36,7 +40,6 @@ public abstract class ProcessSpec implements Serializable {
 	/** The work time required to toggle this process on or off. */
 	private int workTime = 10;
 
-
 	/**
 	 * Constructor.
 	 * 
@@ -44,11 +47,15 @@ public abstract class ProcessSpec implements Serializable {
 	 * @param powerRequired
 	 * @param processTime
 	 * @param workTime
+	 * @param defaultOn
 	 */
-	protected ProcessSpec(String name, double powerRequired, int processTime, int workTime) {
+	ResourceProcessSpec(String name, double powerRequired, int processTime, int workTime, boolean defaultOn) {
+		this.defaultOn = defaultOn;
 		this.name = name;
 		this.baseInputRates = new HashMap<>();
 		this.baseOutputRates = new HashMap<>();
+		this.minimumInputs = new HashMap<>();
+
 		this.wasteResources = new HashSet<>();
 		this.ambientResources = new HashSet<>();
 		this.powerRequired = powerRequired;
@@ -56,7 +63,6 @@ public abstract class ProcessSpec implements Serializable {
 		this.workTime = workTime;
 	}
 
-	
 	/**
 	 * Adds a base input resource rate.
 	 *
@@ -64,10 +70,14 @@ public abstract class ProcessSpec implements Serializable {
 	 * @param rate     base input resource rate (kg/millisol)
 	 * @param ambient  is resource from available from surroundings? (air)
 	 */
-	public void addBaseInputResourceRate(Integer resource, double rate, boolean ambient) {
+	void addBaseInputResourceRate(Integer resource, double rate, boolean ambient) {
 		if (ambient) {
 			ambientResources.add(resource);
-		} 
+		}
+		else {
+			double minAmount = rate * (processTime/1000D) * MIN_PERC;
+			minimumInputs.put(resource, minAmount);
+		}
 
 		baseInputRates.put(resource, rate);
 	}
@@ -79,7 +89,7 @@ public abstract class ProcessSpec implements Serializable {
 	 * @param rate     base output resource rate (kg/millisol)
 	 * @param waste    is resource waste material not to be stored?
 	 */
-	public void addBaseOutputResourceRate(Integer resource, double rate, boolean waste) {
+	void addBaseOutputResourceRate(Integer resource, double rate, boolean waste) {
 		if (waste) {
 			wasteResources.add(resource);
 		}
@@ -107,6 +117,15 @@ public abstract class ProcessSpec implements Serializable {
 	 */
 	public double getBaseInputRate(Integer resource) {
 		return baseInputRates.get(resource);
+	}
+
+	/**
+	 * Gets the minimum input resource rate for a given resource.
+	 *
+	 * @return Amount required
+	 */
+	public Map<Integer, Double> getMinimumInputs() {
+		return minimumInputs;
 	}
 
 	/**
@@ -177,18 +196,8 @@ public abstract class ProcessSpec implements Serializable {
 	public int getWorkTime() {
 		return workTime;
 	}
-	
-	public void destroy() {
-		baseInputRates.clear();
-		baseOutputRates.clear();
 
-		baseInputRates = null;
-		baseOutputRates = null;
-		
-		ambientResources.clear();
-		wasteResources.clear();
-		
-		ambientResources = null;
-		wasteResources = null;
+	public boolean getDefaultOn() {
+		return defaultOn;
 	}
 }

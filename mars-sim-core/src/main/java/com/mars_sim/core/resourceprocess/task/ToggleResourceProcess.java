@@ -4,8 +4,9 @@
  * @date 2022-09-12
  * @author Scott Davis
  */
-package com.mars_sim.core.structure.building.function.task;
+package com.mars_sim.core.resourceprocess.task;
 
+import java.util.Objects;
 import java.util.Set;
 
 import com.mars_sim.core.UnitType;
@@ -15,9 +16,12 @@ import com.mars_sim.core.person.ai.SkillType;
 import com.mars_sim.core.person.ai.task.util.Task;
 import com.mars_sim.core.person.ai.task.util.TaskPhase;
 import com.mars_sim.core.person.ai.task.util.Worker;
+import com.mars_sim.core.resourceprocess.ResourceProcess;
+import com.mars_sim.core.resourceprocess.ResourceProcessSpec;
+import com.mars_sim.core.structure.Settlement;
 import com.mars_sim.core.structure.building.Building;
 import com.mars_sim.core.structure.building.function.FunctionType;
-import com.mars_sim.core.structure.building.function.ResourceProcess;
+import com.mars_sim.core.structure.building.function.ResourceProcessor;
 import com.mars_sim.core.tool.Msg;
 import com.mars_sim.core.tool.RandomUtil;
 
@@ -49,8 +53,6 @@ public class ToggleResourceProcess extends Task {
 	private static final String ON = "on";
 
 	// Data members
-	/** True if process is to be turned on, false if turned off. */
-	private boolean toBeToggledOn;
 	/** True if the finished phase of the process has been completed. */
 	private boolean isFinished = false;
 
@@ -60,14 +62,87 @@ public class ToggleResourceProcess extends Task {
 	private Building resourceProcessBuilding;
 
 	/**
-	 * Constructor.
+	 * Turn a process off
 	 *
 	 * @param worker the worker performing the task.
 	 */
 	public ToggleResourceProcess(Worker worker, Building processBuilding, ResourceProcess process) {
 		super(NAME, worker, true, false, STRESS_MODIFIER, SkillType.MECHANICS, 100D, 20D);
+		if (!worker.isInSettlement()) {
+			clearTask("Not in Settlement.");
+			return;
+		}
 
-		if (process.isFlagged()) {
+		this.resourceProcessBuilding = processBuilding;
+		this.process = process;
+		prepResourceProcess();
+	}
+
+	/**
+	 * Turn a process On
+	 *
+	 * @param worker the worker performing the task.
+	 * @param processSpec Process to turn on
+	 */
+	public ToggleResourceProcess(Worker worker, boolean useWaste, ResourceProcessSpec process) {
+		super(NAME, worker, true, false, STRESS_MODIFIER, SkillType.MECHANICS, 100D, 20D);
+		if (!worker.isInSettlement()) {
+			clearTask("Not in Settlement.");
+			return;
+		}
+
+		if (!selectResourceProcess(worker.getSettlement(), useWaste, process)) {
+			clearTask("No process to toggle on.");
+			return;
+		}
+		prepResourceProcess();
+	}
+
+	private static record PotentialProcess(Building building, ResourceProcess process) {}
+	
+	/**
+	 * Create a potential record if the processor can start the selected processSpec
+	 */
+	private static PotentialProcess createPotential(ResourceProcessor processor,
+			ResourceProcessSpec processSpec) {
+		for(var p : processor.getProcesses()) {
+			if (p.getSpec().equals(processSpec) && p.canToggle()
+				&& !p.isWorkerAssigned() && !p.isProcessRunning()) {
+				return new PotentialProcess(processor.getBuilding(), p);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Select a suitable resource process to toggle on for a Settlement.
+	 * 
+	 * @param s the Settlement.
+	 * @param useWaste true if the process is for waste.
+	 * @param processSpec the process specification.
+	 */
+	private boolean selectResourceProcess(Settlement s, boolean useWaste, ResourceProcessSpec processSpec) {
+		// Create a set of potential processes to toggle on
+		var potentials = s.getBuildingManager().getBuildingSet((useWaste ? FunctionType.WASTE_PROCESSING
+									: FunctionType.RESOURCE_PROCESSING)).stream()
+					.map(b -> (useWaste ? b.getWasteProcessing() : b.getResourceProcessing()))
+					.map(rp -> createPotential(rp, processSpec))
+					.filter(Objects::nonNull)
+					.toList();
+
+		var selected = RandomUtil.getRandomElement(potentials);
+		if (selected == null) {
+			clearTask("No process to toggle on.");
+			return false;
+		}
+		this.process = selected.process;
+		this.resourceProcessBuilding = selected.building;
+
+		return true;
+	}
+
+	private void prepResourceProcess() {
+		if (process.isWorkerAssigned()) {
 			clearTask("Process toggle already active with someone else.");
 			return;
 		}
@@ -76,25 +151,7 @@ public class ToggleResourceProcess extends Task {
 			return;
 		}
 
-		this.resourceProcessBuilding = processBuilding;
-		this.process = process;
-
-		if (worker.isInSettlement()) {
-			setupResourceProcess();
-		}
-		else {
-			clearTask("Not in Settlement.");
-		}
-	}
-
-	/**
-	 * Sets up the resource process.
-	 */
-	private void setupResourceProcess() {
-		// Copy the current state of this process
-		toBeToggledOn = !process.isProcessRunning();
-
-		if (!toBeToggledOn) {
+		if (process.isProcessRunning()) {
 			setName(TOGGLE_OFF);
 			setDescription(TOGGLE_OFF);
 			logger.fine(resourceProcessBuilding, process + " : " + worker + " made an attempt to toggle it off.");
@@ -113,7 +170,7 @@ public class ToggleResourceProcess extends Task {
 		addPhase(FINISHED);
 
 		setPhase(TOGGLING);
-		process.setFlag(true);
+		process.setWorkerAssigned(true);
 	}
 
 	@Override
@@ -190,15 +247,9 @@ public class ToggleResourceProcess extends Task {
 	 */
 	protected double finishedPhase(double time) {
 
-		if (!isFinished) {
-			String toggle = OFF;
-			if (toBeToggledOn) {
-				toggle = ON;
-				process.setProcessRunning(true);
-			} else {
-				process.setProcessRunning(false);
-			}
-
+		if (!isFinished) {			
+			// COmplete toggling with stop the process automatically
+			String toggle = (process.isProcessRunning() ? ON : OFF);
 			if (resourceProcessBuilding.hasFunction(FunctionType.LIFE_SUPPORT))
 				logger.fine(resourceProcessBuilding, process + " : " + worker
 						+ " just toggled it " + toggle + " manually.");
@@ -259,7 +310,7 @@ public class ToggleResourceProcess extends Task {
 	@Override
 	protected void clearDown() {
 		if (process != null) {
-			process.setFlag(false);
+			process.setWorkerAssigned(false);
 		}
 		super.clearDown();
 	}
@@ -284,5 +335,13 @@ public class ToggleResourceProcess extends Task {
 		walkToTaskSpecificActivitySpotInBuilding(building,
 				FunctionType.MANAGEMENT,
 				false);
+	}
+
+	ResourceProcess getResourceProcess() {
+		return process;
+	}
+
+	Building getBuilding() {
+		return resourceProcessBuilding;
 	}
 }

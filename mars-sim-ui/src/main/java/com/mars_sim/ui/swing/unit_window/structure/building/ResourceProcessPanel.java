@@ -8,7 +8,6 @@ package com.mars_sim.ui.swing.unit_window.structure.building;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Point;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,25 +17,26 @@ import java.util.Map.Entry;
 import javax.swing.DefaultCellEditor;
 import javax.swing.Icon;
 import javax.swing.JCheckBox;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.SwingConstants;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumnModel;
 
 import com.mars_sim.core.Entity;
 import com.mars_sim.core.resource.ResourceUtil;
+import com.mars_sim.core.resourceprocess.ResourceProcess;
+import com.mars_sim.core.resourceprocess.ResourceProcess.ProcessState;
 import com.mars_sim.core.structure.building.Building;
-import com.mars_sim.core.structure.building.function.ResourceProcess;
-import com.mars_sim.core.tool.Msg;
 import com.mars_sim.ui.swing.ImageLoader;
 import com.mars_sim.ui.swing.MainDesktopPane;
 import com.mars_sim.ui.swing.StyleManager;
 import com.mars_sim.ui.swing.utils.EntityLauncher;
 import com.mars_sim.ui.swing.utils.EntityModel;
 import com.mars_sim.ui.swing.utils.JProcessButton;
+import com.mars_sim.ui.swing.utils.ToolTipTableModel;
 
 /**
  * Creates a JPanel that will render a list of ResourceProcesses in a JTable.
@@ -44,8 +44,7 @@ import com.mars_sim.ui.swing.utils.JProcessButton;
  */
 @SuppressWarnings("serial")
 public class ResourceProcessPanel extends JPanel {
-    private static final Icon RED_DOT = ImageLoader.getIconByName("dot/red");
-    private static final Icon GREEN_DOT = ImageLoader.getIconByName("dot/green");
+    private static final Icon INPUTS_DOT = ImageLoader.getIconByName("dot/yellow");
 
     private static final String KG_SOL = " kg/sol";
 	private static final String BR = "<br>";
@@ -63,7 +62,7 @@ public class ResourceProcessPanel extends JPanel {
      * - Multiple building mode
      */
 	private static class ResourceProcessTableModel extends AbstractTableModel
-                implements EntityModel {
+                implements EntityModel, ToolTipTableModel {
 		private static final int RUNNING_STATE = 0;
         private static final int BUILDING_NAME = 1;		
         private static final int PROCESS_NAME = 2;
@@ -118,14 +117,13 @@ public class ResourceProcessPanel extends JPanel {
 
         @Override
         public boolean isCellEditable(int rowIndex, int columnIndex) {
-            return (columnIndex == 0);
+            return (columnIndex == RUNNING_STATE);
         }
 
         @Override
 		public Class<?> getColumnClass(int columnIndex) {
-            int realColumn = getPropFromColumn(columnIndex);
-            switch(realColumn) {
-                case RUNNING_STATE: return Boolean.class;
+            switch(columnIndex) {
+                case RUNNING_STATE: return ResourceProcess.ProcessState.class;
                 case BUILDING_NAME: return String.class;
                 case PROCESS_NAME: return String.class;                
                 case INPUT_SCORE: return Double.class;
@@ -138,8 +136,7 @@ public class ResourceProcessPanel extends JPanel {
 
         @Override
 		public String getColumnName(int columnIndex) {
-            int realColumn = getPropFromColumn(columnIndex);
-            switch(realColumn) {
+            switch(columnIndex) {
                 case RUNNING_STATE: return "On";
                 case BUILDING_NAME: return "Building";
                 case PROCESS_NAME: return "Process";
@@ -154,15 +151,15 @@ public class ResourceProcessPanel extends JPanel {
         @Override
         public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
             ResourceProcess p = processes.get(rowIndex);
-            p.setProcessRunning((boolean) aValue);
+            ProcessState s = (ProcessState) aValue;
+            p.setProcessRunning(s == ProcessState.RUNNING);
         }
 
         @Override
 		public Object getValueAt(int row, int column) {
             ResourceProcess p = processes.get(row);
-            int realColumn = getPropFromColumn(column);
-            switch(realColumn) {
-                case RUNNING_STATE: return p.isProcessRunning();
+            switch(column) {
+                case RUNNING_STATE: return p.getState();
                 case BUILDING_NAME: return getBuilding(row);                
                 case PROCESS_NAME: return p.getProcessName();
                 case INPUT_SCORE: return Math.round(p.getInputScore() * 100.0)/100.0;
@@ -172,24 +169,6 @@ public class ResourceProcessPanel extends JPanel {
                     throw new IllegalArgumentException("Column unknown " + column);
             }
 		}
-
-        /**
-         * Maps the column index into the logical property.
-         * 
-         * @param column
-         * @return
-         */
-        private int getPropFromColumn(int column) {
-            switch(column) {
-                case 0: return RUNNING_STATE;
-                case 1: return BUILDING_NAME;
-                case 2: return PROCESS_NAME;
-                case 3: return INPUT_SCORE;
-                case 4: return OUTPUT_SCORE;
-                case 5: return SCORE;
-                default: return -1;
-            }
-        }
 
         /**
          * Gets the associated process object.
@@ -215,18 +194,78 @@ public class ResourceProcessPanel extends JPanel {
         public Entity getAssociatedEntity(int row) {
             return getBuilding(row);
         }
-        
-    	/**
-    	 * Prepares object for garbage collection.
-    	 */
-    	public void destroy() {	
-    		mainBuilding = null;
-    		processes.clear();
-            processes = null;
-            buildings.clear();
-            buildings = null;
-    	}
-        
+
+        @Override
+        public String getToolTipAt(int row, int col) {
+            if (col == RUNNING_STATE) {
+                return switch(getProcess(row).getState()) {
+                    case RUNNING -> "Running";
+                    case IDLE -> "Idle";
+                    case INPUTS_UNAVAILABLE -> "No inputs";
+                };
+            }
+
+            // Only display tooltip if hovering over the 3rd column named "Process"
+            if (col == PROCESS_NAME) {
+                return generateProcessTooltip(getProcess(row), getBuilding(row));
+            }
+            
+            return null;
+        }
+
+        /**
+         * Generates the tooltip.
+         * 
+         * @param process
+         * @param building
+         * @return
+         */
+        private String generateProcessTooltip(ResourceProcess process, Building building) {
+
+            // NOTE: internationalize the resource processes' dynamic tooltip.
+            StringBuilder result = new StringBuilder("<html>");
+            // Future: Use another tool tip manager to align text to improve tooltip readability			
+            result.append(PROCESS).append(process.getProcessName()).append(BR);
+            result.append(BUILDING_HEADER).append(building.getName()).append(BR);
+            result.append(POWER_REQ).append(StyleManager.DECIMAL_KW.format(process.getPowerRequired()))
+            .append(BR);
+
+            result.append(INPUTS);
+            boolean firstItem = true;
+            boolean hasAmbient = false;
+            for (Integer resource: process.getInputResources()) {
+                if (!firstItem) 
+                    result.append(SPACES);
+                double fullRate = process.getBaseFullInputRate(resource) * 1000D;
+                String rateString = StyleManager.DECIMAL_PLACES2.format(fullRate);
+
+                result.append(ResourceUtil.findAmountResource(resource).getName());
+                if (process.isAmbientInputResource(resource)) {
+                    result.append("*");
+                    hasAmbient = true;
+                }
+                result.append(" @ ").append(rateString).append(KG_SOL).append(BR);
+                firstItem = false;    
+            }
+
+            result.append(OUTPUTS);
+            firstItem = true;
+            for (Integer resource : process.getOutputResources()) {
+                if (!firstItem)
+                    result.append(SPACES);
+                double fullRate = process.getBaseFullOutputRate(resource) * 1000D;
+                String rateString = StyleManager.DECIMAL_PLACES2.format(fullRate);
+                result.append(ResourceUtil.findAmountResource(resource).getName())
+                    .append(" @ ").append(rateString).append(KG_SOL).append(BR);
+                firstItem = false;    
+            }
+            // Add a note to denote an ambient input resource
+            if (hasAmbient)
+                result.append(NOTE);
+            result.append("</html>");   
+            
+            return result.toString();
+        }
 	}
 
     /**
@@ -236,15 +275,17 @@ public class ResourceProcessPanel extends JPanel {
 
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            setHorizontalAlignment( JLabel.CENTER );
+            setHorizontalAlignment( SwingConstants.CENTER );
 
             super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
             setText(null);
-            if (value instanceof Boolean && (Boolean)value) {
-                setIcon(GREEN_DOT);
-            }
-            else {
-                setIcon(RED_DOT);
+            if (value instanceof ResourceProcess.ProcessState state) {
+                var icon = switch(state) {
+                    case RUNNING -> JProcessButton.RUNNING_DOT;
+                    case IDLE -> JProcessButton.STOPPED_DOT;
+                    case INPUTS_UNAVAILABLE -> INPUTS_DOT;
+                };
+                setIcon(icon);
             }
             return this;
         }        
@@ -260,19 +301,19 @@ public class ResourceProcessPanel extends JPanel {
         }
 
         private JProcessButton button;
-        private boolean selected;
+        private ProcessState selected;
         
         @Override
         public Component getTableCellEditorComponent(JTable table, Object value,
                                 boolean isSelected,
                                 int row, int column) {
-            selected = (boolean) value;
+            selected = (ResourceProcess.ProcessState) value;
 
             button = new JProcessButton();
-            button.setRunning(selected);
+            button.setRunning(selected == ProcessState.RUNNING);
             button.addActionListener(e -> {
-                selected = !selected;
-                button.setRunning(selected);
+                selected = (selected == ProcessState.RUNNING) ? ProcessState.IDLE : ProcessState.RUNNING;
+                button.setRunning(selected == ProcessState.RUNNING);
 
                 // Stop after one click
                 stopCellEditing();
@@ -322,28 +363,10 @@ public class ResourceProcessPanel extends JPanel {
 	    scrollPanel.setOpaque(false);
 
 		JTable pTable = new JTable(resourceProcessTableModel) {
-            // Implement table cell tool tips.           
+            // Implement table cell tool tips. 
+            @Override          
             public String getToolTipText(MouseEvent e) {
-                Point p = e.getPoint();
-                int rowIndex = rowAtPoint(p);
-                if (rowIndex < 0) {
-                    return null;
-                }
-                rowIndex = getRowSorter().convertRowIndexToModel(rowIndex);
-                
-                int colIndex = columnAtPoint(p);
-
-                if (colIndex == 0) {
-                    return Msg.getString("ResourceProcessPanel.tooltip.toggling");
-                }
-
-                // Only display tooltip if hovering over the 3rd column named "Process"
-                if (colIndex == 2) {
-                	return generateToolTip(resourceProcessTableModel.getProcess(rowIndex),
-                		resourceProcessTableModel.getBuilding(rowIndex));
-                }
-                
-                return null;
+                return ToolTipTableModel.extractToolTip(e, this);
             }
         };
 
@@ -378,59 +401,5 @@ public class ResourceProcessPanel extends JPanel {
     		resourceProcessTableModel.fireTableCellUpdated(i, 4);
     		resourceProcessTableModel.fireTableCellUpdated(i, 5);
     	}
-    }
-    
-    /**
-     * Generates the tooltip.
-     * 
-     * @param process
-     * @param building
-     * @return
-     */
-    private String generateToolTip(ResourceProcess process, Building building) {
-
-        // NOTE: internationalize the resource processes' dynamic tooltip.
-        StringBuilder result = new StringBuilder("<html>");
-        // Future: Use another tool tip manager to align text to improve tooltip readability			
-        result.append(PROCESS).append(process.getProcessName()).append(BR);
-        result.append(BUILDING_HEADER).append(building.getName()).append(BR);
-        result.append(POWER_REQ).append(StyleManager.DECIMAL_KW.format(process.getPowerRequired()))
-        .append(BR);
-
-        result.append(INPUTS);
-        boolean firstItem = true;
-        boolean hasAmbient = false;
-        for (Integer resource: process.getInputResources()) {
-            if (!firstItem) 
-                result.append(SPACES);
-            double fullRate = process.getBaseFullInputRate(resource) * 1000D;
-            String rateString = StyleManager.DECIMAL_PLACES2.format(fullRate);
-
-            result.append(ResourceUtil.findAmountResource(resource).getName());
-            if (process.isAmbientInputResource(resource)) {
-                result.append("*");
-                hasAmbient = true;
-            }
-            result.append(" @ ").append(rateString).append(KG_SOL).append(BR);
-            firstItem = false;    
-        }
-
-        result.append(OUTPUTS);
-        firstItem = true;
-        for (Integer resource : process.getOutputResources()) {
-            if (!firstItem)
-                result.append(SPACES);
-            double fullRate = process.getBaseFullOutputRate(resource) * 1000D;
-            String rateString = StyleManager.DECIMAL_PLACES2.format(fullRate);
-            result.append(ResourceUtil.findAmountResource(resource).getName())
-                .append(" @ ").append(rateString).append(KG_SOL).append(BR);
-            firstItem = false;    
-        }
-        // Add a note to denote an ambient input resource
-        if (hasAmbient)
-            result.append(NOTE);
-        result.append("</html>");   
-        
-        return result.toString();
     }
 }

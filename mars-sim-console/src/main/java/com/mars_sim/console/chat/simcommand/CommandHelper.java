@@ -35,13 +35,12 @@ import com.mars_sim.core.person.ai.task.util.Worker;
 import com.mars_sim.core.resource.ItemResourceUtil;
 import com.mars_sim.core.resource.Part;
 import com.mars_sim.core.resource.ResourceUtil;
+import com.mars_sim.core.resourceprocess.ResourceProcess;
 import com.mars_sim.core.science.ScientificStudy;
 import com.mars_sim.core.science.StudyStatus;
 import com.mars_sim.core.structure.Airlock;
-import com.mars_sim.core.structure.building.function.ResourceProcess;
 import com.mars_sim.core.structure.building.function.ResourceProcessor;
 import com.mars_sim.core.vehicle.Vehicle;
-import com.mars_sim.core.vehicle.task.LoadingController;
 
 /**
  * Helper class with common formatting methods.
@@ -87,9 +86,6 @@ public class CommandHelper {
 	public static final String DEG_FORMAT = "%.2f\u00B0";
 	public static final String KPA_FORMAT = "%.2f kPa";
 	public static final String CELSIUS_FORMAT = "%.2f C\u00B0";
-
-	private static final String DUE_FORMAT = "%d:%03d";
-
 	
 	private CommandHelper() {
 		// Do nothing
@@ -375,20 +371,24 @@ public class CommandHelper {
 			// Vehicle mission has a loading
 			Vehicle v = tm.getVehicle();
 			if (v != null) {
-				LoadingController lp = v.getLoadingPlan();
-				if ((lp != null) && !lp.isCompleted()) {
-					response.appendText("Loading from " + lp.getSettlement().getName() + " :");
-					outputAmounts("Amount Resources", response, lp.getAmountManifest(true));	
-					outputAmounts("Optional Amounts", response, lp.getAmountManifest(false));
-					outputItems("Items", response, lp.getItemManifest(true));	
-					outputItems("Optional Items", response, lp.getItemManifest(false));	
-					outputEquipment("Equipment", response, lp.getEquipmentManifest(true));	
-					outputEquipment("Optional Equipment", response, lp.getEquipmentManifest(false));	
-				}
+				outputLoadingPlan(v, response);
 			}
 		}
 	}
 	
+	private static void outputLoadingPlan(Vehicle v, StructuredResponse response) {
+		var lp = v.getLoadingPlan();
+		if ((lp != null) && !lp.isCompleted()) {
+			response.appendText("Loading from " + lp.getSettlement().getName() + " :");
+			outputAmounts("Amount Resources", response, lp.getAmountManifest(true));	
+			outputAmounts("Optional Amounts", response, lp.getAmountManifest(false));
+			outputItems("Items", response, lp.getItemManifest(true));	
+			outputItems("Optional Items", response, lp.getItemManifest(false));	
+			outputEquipment("Equipment", response, lp.getEquipmentManifest(true));	
+			outputEquipment("Optional Equipment", response, lp.getEquipmentManifest(false));
+		}
+	}
+
 	/**
 	 * Outputs the equipment in use.
 	 * 
@@ -590,21 +590,15 @@ public class CommandHelper {
 			if (p.canToggle()) {
 				// Toggling is available
 				double[] toggleTime = p.getToggleSwitchDuration();
-				if (toggleTime[0] == 0D) {
-					nextToggle = "Available ";
-				}
-				else {
-					nextToggle = String.format(PERC_FORMAT, (100D * toggleTime[0])/toggleTime[1]);
-				}
+				nextToggle = String.format(PERC_FORMAT, (100D * toggleTime[0])/toggleTime[1]);
 				
 				// Flag if it is being currently toggled by someone
-				if (p.isFlagged()) {
+				if (p.isWorkerAssigned()) {
 					nextToggle = "Active " + nextToggle;
 				}
 			}
 			else {
-				int[] remainingTime = p.getTimeLimit();
-				nextToggle = "Due @ " + String.format(DUE_FORMAT, remainingTime[0], remainingTime[1]);
+				nextToggle = "Due @ " + p.getToggleDue().getTruncatedDateTimeStamp();
 			}
 
 			response.appendTableRow(p.getProcessName(), p.isProcessRunning(),

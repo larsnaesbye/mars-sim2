@@ -14,6 +14,7 @@ import java.util.Set;
 
 import com.mars_sim.core.map.location.BoundedObject;
 import com.mars_sim.core.map.location.LocalPosition;
+import com.mars_sim.core.resourceprocess.ResourceProcessEngine;
 import com.mars_sim.core.science.ScienceType;
 import com.mars_sim.core.structure.building.function.FunctionType;
 

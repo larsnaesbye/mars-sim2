@@ -55,8 +55,7 @@ public class MarsTerminal extends SwingTextTerminal implements ClockListener {
     public static final String MARS_SIM = "Mars Simulation Project";
     public static final String ABOUT_MSG =
 			"     " + "     Version " + SimulationRuntime.VERSION.getVersionTag() + "\n"
-			+ "     " + SimulationRuntime.VERSION.getBuildString() + "\n"
-			+ "     " + "          " + Simulation.YEAR;
+			+ "     " + SimulationRuntime.VERSION.getBuildString();
 		
 	private static final int DEFAULT_WIDTH = 1024;
 	private static final int DEFAULT_HEIGHT = 600;

@@ -786,8 +786,12 @@ public class GoodsManager implements Serializable {
 	 * @param newValue
 	 */
 	void setSupplyValue(Good good, double newValue) {
+		setSupplyValue(good.getID(), newValue);
+	}
+
+	public void setSupplyValue(int id, double newValue) {
 		double clippedValue = limitMaxMin(newValue, MIN_SUPPLY, MAX_SUPPLY);
-		supplyCache.put(good.getID(), clippedValue);
+		supplyCache.put(id, clippedValue);
 	}
 
 	/**

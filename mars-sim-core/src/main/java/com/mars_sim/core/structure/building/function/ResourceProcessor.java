@@ -9,11 +9,12 @@ package com.mars_sim.core.structure.building.function;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.mars_sim.core.resourceprocess.ResourceProcess;
+import com.mars_sim.core.resourceprocess.ResourceProcessEngine;
 import com.mars_sim.core.structure.Settlement;
 import com.mars_sim.core.structure.building.Building;
 import com.mars_sim.core.structure.building.BuildingException;
 import com.mars_sim.core.structure.building.FunctionSpec;
-import com.mars_sim.core.structure.building.ResourceProcessEngine;
 import com.mars_sim.core.structure.building.utility.power.PowerMode;
 import com.mars_sim.core.time.ClockPulse;
 import com.mars_sim.core.time.MarsTime;
@@ -44,10 +45,11 @@ public abstract class ResourceProcessor extends Function {
 		// Use Function constructor
 		super(type, spec, building);
 
+		var s = building.getAssociatedSettlement();
 		powerDownProcessingLevel = spec.getDoubleProperty(POWER_DOWN_LEVEL);
 		processes = new ArrayList<>();
 		for (ResourceProcessEngine wspec : processSpecs) {
-			processes.add(new ResourceProcess(wspec));
+			processes.add(new ResourceProcess(wspec, s));
 		}
 	}
 
@@ -64,8 +66,9 @@ public abstract class ResourceProcessor extends Function {
 		double result = 0D;
 		for (ResourceProcessEngine process : processSpecs) {
 			double processValue = 0D;
-			for (Integer outResource : process.getOutputResources()) {
-				if (!process.isWasteOutputResource(outResource)) {
+			var spec = process.getProcessSpec();
+			for (Integer outResource : spec.getOutputResources()) {
+				if (!spec.isWasteOutputResource(outResource)) {
 					double fullRate = process.getBaseFullOutputRate(outResource);
 					processValue += settlement.getGoodsManager().getGoodValuePoint(outResource) * fullRate;
 				}
@@ -73,8 +76,8 @@ public abstract class ResourceProcessor extends Function {
 
 			double inputInventoryLimit = 1D;
 			// May try List.copyOf(process.getInputResources())
-			for (int inResource : process.getInputResources()) {
-				if (!process.isAmbientInputResource(inResource)) {
+			for (int inResource : spec.getInputResources()) {
+				if (!spec.isAmbientInputResource(inResource)) {
 					double fullRate = process.getBaseFullInputRate(inResource);
 					processValue -= settlement.getGoodsManager().getGoodValuePoint(inResource) * fullRate;
 
@@ -90,7 +93,7 @@ public abstract class ResourceProcessor extends Function {
 			}
 
 			// Subtract value of require power.
-			double powerHrsRequiredPerSol = process.getPowerRequired() * MarsTime.HOURS_PER_MILLISOL * 1000D;
+			double powerHrsRequiredPerSol = spec.getPowerRequired() * MarsTime.HOURS_PER_MILLISOL * 1000D;
 			double powerValue = powerHrsRequiredPerSol * settlement.getPowerGrid().getPowerValue();
 			processValue -= powerValue;
 
@@ -147,7 +150,7 @@ public abstract class ResourceProcessor extends Function {
 				productionLevel = powerDownProcessingLevel;
 			// Run each resource process.
 			for (ResourceProcess p : processes) {
-				p.processResources(pulse, productionLevel, getBuilding().getSettlement());
+				p.processResources(pulse, productionLevel);
 			}
 		}
 		return valid;

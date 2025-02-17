@@ -1,12 +1,11 @@
 /*
  * Mars Simulation Project
- * ProcessSpecConfig.java
+ * ResourceProcessConfig.java
  * @date 2022-10-23
  * @author Barry Evans
  */
-package com.mars_sim.core.process;
+package com.mars_sim.core.resourceprocess;
 
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,15 +16,11 @@ import com.mars_sim.core.configuration.ConfigHelper;
 import com.mars_sim.core.resource.ResourceUtil;
 
 /**
- * Provides configuration information about settlement buildings. Uses a DOM
- * document to get the information.
+ * Parses a definition of Resource processes from XML and creates a lookup library.
  */
-public abstract class ProcessSpecConfig<T extends ProcessSpec> implements Serializable {
-
-	/** default serial id. */
-	private static final long serialVersionUID = 1L;
-
-	// Element and attribute names
+public class ResourceProcessConfig {
+	
+    private static final String DEFAULT = "defaultOn";
 	private static final String NAME = "name";
 	private static final String POWER_REQUIRED = "power-required";
 	private static final String PROCESS = "process";
@@ -38,18 +33,18 @@ public abstract class ProcessSpecConfig<T extends ProcessSpec> implements Serial
 	private static final String WASTE = "waste";
 	private static final String RESOURCE = "resource";
 
-	private transient Map<String, T> processSpecMap = new HashMap<>();
+	private Map<String, ResourceProcessSpec> processSpecMap = new HashMap<>();
 
 	/**
 	 * Constructor.
 	 *
 	 * @param processDoc DOM document with ProcessSpec configuration
 	 */
-	protected ProcessSpecConfig(Document processDoc) {
+	public ResourceProcessConfig(Document processDoc) {
 
 		List<Element> processNodes = processDoc.getRootElement().getChildren(PROCESS);
 		for (Element processElement : processNodes) {
-			T newProcess = parseProcessSpec(processElement);
+			ResourceProcessSpec newProcess = parseProcessSpec(processElement);
 
 			String key = newProcess.getName().toLowerCase();
 			if (processSpecMap.containsKey(key)) {
@@ -65,13 +60,15 @@ public abstract class ProcessSpecConfig<T extends ProcessSpec> implements Serial
 	 * 
 	 * @param resourceProcessingElement
 	 */
-	private T parseProcessSpec(Element processElement) {
+	private ResourceProcessSpec parseProcessSpec(Element processElement) {
 
 		String name = processElement.getAttributeValue(NAME);
         double powerRequired = Double.parseDouble(processElement.getAttributeValue(POWER_REQUIRED));
 		int processTime = ConfigHelper.getOptionalAttributeInt(processElement, PROCESS_TIME, 200);
 		int workTime = ConfigHelper.getOptionalAttributeInt(processElement, WORK_TIME, 10);
-		T process = createProcess(processElement, name, powerRequired, processTime, workTime);
+        boolean defaultOn = ConfigHelper.getOptionalAttributeBool(processElement, DEFAULT, false);
+    
+        ResourceProcessSpec process =  new ResourceProcessSpec(name, powerRequired, processTime, workTime, defaultOn);
 
 		// Get input resources.
 		List<Element> inputNodes = processElement.getChildren(INPUT);
@@ -100,17 +97,14 @@ public abstract class ProcessSpecConfig<T extends ProcessSpec> implements Serial
 		return process;
 	}
 
-
-	protected abstract T createProcess(Element processElement, String name, double powerRequired, int processTime, int workTime);
-
 	/**
 	 * Finds a Building spec according to the name.
 	 * 
 	 * @param buildingType
 	 * @return
 	 */
-	public T getProcessSpec(String processName) {
-		T result = processSpecMap.get(processName.toLowerCase());
+	public ResourceProcessSpec getProcessSpec(String processName) {
+		ResourceProcessSpec result = processSpecMap.get(processName.toLowerCase());
 		if (result == null) {
 			throw new IllegalArgumentException("Process Spec not known :" + processName);
 		}

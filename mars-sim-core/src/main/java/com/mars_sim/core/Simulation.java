@@ -72,7 +72,6 @@ import com.mars_sim.core.structure.ExplorationManager;
 import com.mars_sim.core.structure.building.BuildingConfig;
 import com.mars_sim.core.structure.building.BuildingManager;
 import com.mars_sim.core.structure.building.function.Function;
-import com.mars_sim.core.structure.building.function.ResourceProcess;
 import com.mars_sim.core.structure.building.function.farming.AlgaeFarming;
 import com.mars_sim.core.structure.building.function.farming.Crop;
 import com.mars_sim.core.structure.building.function.farming.CropConfig;
@@ -129,12 +128,10 @@ public class Simulation implements ClockListener, Serializable {
 		AUTOSAVE_AS_DEFAULT,
 		/** Autosave with build info and timestamp. */
 		AUTOSAVE;
-	};
+	}
 
-	/** The current year. */
-	public static final String YEAR = "2024";
 	/** The dashes. */
-	public final String DASHES = " ---------------------------------------------------------";
+	private static final String DASHES = " ---------------------------------------------------------";
 
 	/** Default save filename. */
 	public static final  String SAVE_FILE = Msg.getString("Simulation.saveFile"); //$NON-NLS-1$
@@ -380,7 +377,6 @@ public class Simulation implements ClockListener, Serializable {
 
 		// Initialize instances in Airlock
 		Airlock.initializeInstances(unitManager, marsSurface, masterClock);
-		ResourceProcess.initializeInstances(masterClock);
 
 		eventManager = new HistoricalEventManager(masterClock);
 		PhysicalCondition.initializeInstances(masterClock, medicalManager,
@@ -468,7 +464,6 @@ public class Simulation implements ClockListener, Serializable {
 		
 		// Add colonies to lunarColonyManager
 		lunarColonyManager.addInitColonies();
-//		lunarColonyManager.init();
 		
 		// Initialize Unit
 		Unit.initializeInstances(masterClock, unitManager, weather, missionManager);
@@ -498,8 +493,6 @@ public class Simulation implements ClockListener, Serializable {
 		Airlock.initializeInstances(unitManager, marsSurface, masterClock);
 		
 		AirComposition.initializeInstances(pc);
-
-		ResourceProcess.initializeInstances(masterClock);
 		
 		PowerSource.initializeInstances(surfaceFeatures, orbitInfo, weather);
 		
@@ -627,8 +620,6 @@ public class Simulation implements ClockListener, Serializable {
 		Airlock.initializeInstances(unitManager, marsSurface, masterClock);
 		
 		AirComposition.initializeInstances(pc);
-		
-		ResourceProcess.initializeInstances(masterClock);
 		
 		PowerSource.initializeInstances(surfaceFeatures, orbitInfo, weather);
 		
@@ -781,17 +772,8 @@ public class Simulation implements ClockListener, Serializable {
 			
 			UnitSet.reinit(unitManager);
 
-		} catch (ClassNotFoundException e) {
-			logger.log(Level.SEVERE, "Can't find class when loading " + file + " : " + e.getMessage());
-
-		} catch (ObjectStreamException e) {
-			logger.log(Level.SEVERE, "Can't read object stream when loading " + file + " : " + e.getMessage());
-	
-		} catch (IOException e) {
-			logger.log(Level.SEVERE, "Input/Output problem when loading " + file + " : ", e.getMessage()); 
-
 		} catch (Exception e) {
-			logger.log(Level.SEVERE, "Cannot deserialize : " + e.getMessage());
+			logger.log(Level.SEVERE, "Cannot deserialize : " + e.getMessage(), e);
 			
 		} finally {
 
@@ -915,8 +897,7 @@ public class Simulation implements ClockListener, Serializable {
 
 		// Use type to differentiate in what name/dir it is saved
 		switch(type) {
-			case AUTOSAVE_AS_DEFAULT:
-			case SAVE_DEFAULT:
+			case AUTOSAVE_AS_DEFAULT, SAVE_DEFAULT:
 				file = new File(SimulationRuntime.getSaveDir(), SAVE_FILE + SAVE_FILE_EXTENSION);
 	
 				if (file.exists() && !file.isDirectory()) {

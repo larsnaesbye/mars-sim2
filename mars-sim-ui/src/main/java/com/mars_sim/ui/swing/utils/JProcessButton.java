@@ -17,8 +17,8 @@ import com.mars_sim.ui.swing.ImageLoader;
  */
 @SuppressWarnings("serial")
 public class JProcessButton extends JButton {
-    private static final Icon RED_DOT = ImageLoader.getIconByName("dot/red");
-    private static final Icon GREEN_DOT = ImageLoader.getIconByName("dot/green");
+    public static final Icon STOPPED_DOT = ImageLoader.getIconByName("dot/red");
+    public static final Icon RUNNING_DOT = ImageLoader.getIconByName("dot/green");
 
     public JProcessButton() {
         super();
@@ -30,10 +30,10 @@ public class JProcessButton extends JButton {
      */
     public void setRunning(boolean running) {
 		if (running) {
-            setIcon(GREEN_DOT);
+            setIcon(RUNNING_DOT);
         }
         else {
-			setIcon(RED_DOT);
+			setIcon(STOPPED_DOT);
         }
     }
-};
+}
