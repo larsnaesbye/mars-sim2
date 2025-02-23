@@ -47,7 +47,7 @@
 		<dependency>
 		    <groupId>org.httprpc</groupId>
 		    <artifactId>sierra</artifactId>
-		    <version>2.3.1</version>
+		    <version>2.7.3</version>
 		</dependency>
 		<dependency>
 		    <groupId>org.bidib.jbidib.eu.hansolo</groupId>
